@@ -4,76 +4,77 @@
 let map;
 let userMarker = null;
 let currentUser = null;
-let currentMarkerMode = null; // Armazena o modo de marcador ativo ('metralha', 'entulho', etc.)
-let reportMarkers = []; // Array para armazenar todos os marcadores de relatório
+let currentMarkerMode = null;
+let reportMarkers = [];
 
-// Inicialização do Mapa com Duas Camadas
+// Inicialização do Mapa
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa o mapa centrado em Alagoinha, PE
     map = L.map('map', {
         center: [-7.8375, -35.5781],
         zoom: 13,
         layers: []
     });
 
-    // Define as camadas de mapa
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
     });
 
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        attribution: 'Tiles &copy; Esri',
         maxZoom: 19
     });
 
-    // Objeto com as camadas para o controle de camadas
     const baseMaps = {
         "Mapa (OSM)": osmLayer,
         "Satélite (Esri)": satelliteLayer
     };
 
-    // Adiciona o controle de camadas ao mapa
     L.control.layers(baseMaps).addTo(map);
-
-    // Define a camada padrão (OpenStreetMap)
     osmLayer.addTo(map);
 
-    // Adiciona evento de clique no mapa para adicionar marcadores
+    // Evento de clique no mapa (somente se for admin e tiver um modo ativo)
     map.on('click', function(e) {
-        if (currentMarkerMode) {
+        if (currentUser && currentUser.type === 'admin' && currentMarkerMode) {
             addReportMarker(e.latlng, currentMarkerMode);
+        } else if (!currentUser || currentUser.type !== 'admin') {
+            alert('⛔️ Apenas administradores podem adicionar marcadores.');
+        } else if (!currentMarkerMode) {
+            alert('ℹ️ Por favor, selecione um tipo de marcador primeiro.');
         }
     });
 });
 
-// ================= FUNÇÃO PARA ADICIONAR MARCADORES DE RELATÓRIO =================
+// ================= FUNÇÃO PARA ADICIONAR MARCADORES (APENAS ADMINS) =================
 function addReportMarker(latlng, type) {
-    // Define o ícone com base no tipo
-    let iconColor, iconText;
+    let iconColor, iconText, typeName;
     switch(type) {
         case 'metralha':
             iconColor = '#e53e3e';
             iconText = '🧱';
+            typeName = 'Metralha';
             break;
         case 'entulho':
             iconColor = '#8B4513';
             iconText = '🗑️';
+            typeName = 'Entulho';
             break;
         case 'mato-verde':
             iconColor = '#2F855A';
             iconText = '🌿';
+            typeName = 'Mato Verde';
             break;
         case 'mato-seco':
             iconColor = '#ed8936';
             iconText = '🍂';
+            typeName = 'Mato Seco';
             break;
         default:
             iconColor = '#667eea';
             iconText = '📍';
+            typeName = 'Desconhecido';
     }
 
-    // Cria o ícone personalizado
     const markerIcon = L.divIcon({
         className: 'report-marker-icon',
         html: `<div style="
@@ -94,45 +95,53 @@ function addReportMarker(latlng, type) {
         iconAnchor: [16, 16]
     });
 
-    // Cria o marcador
     const marker = L.marker(latlng, { icon: markerIcon }).addTo(map);
 
-    // Armazena informações no marcador
+    // Armazena dados no marcador
     marker.reportData = {
+        id: Date.now(), // ID único baseado no timestamp
         type: type,
+        typeName: typeName,
         latlng: latlng,
         status: 'pending',
-        createdAt: new Date()
+        createdAt: new Date(),
+        description: '',
+        priority: '',
+        photoUrl: null
     };
 
     // Adiciona o marcador ao array global
     reportMarkers.push(marker);
 
-    // Abre o modal de relatório automaticamente
+    // Abre o modal para preencher detalhes
     openReportModal(latlng, type, marker);
 
-    // Opcional: Adiciona um popup ao marcador
-    marker.bindPopup(`
-        <strong>Tipo: ${type}</strong><br>
-        Status: Pendente<br>
-        Clique para mais detalhes.
-    `);
+    // Adiciona evento de clique para admins
+    marker.on('click', function() {
+        if (currentUser && currentUser.type === 'admin') {
+            showMarkerDetails(marker);
+        } else {
+            // Para cidadãos, apenas mostra um popup informativo
+            marker.bindPopup(`
+                <strong>${typeName}</strong><br>
+                Status: Pendente<br>
+                <small>Reportado em: ${marker.reportData.createdAt.toLocaleDateString()}</small>
+            `).openPopup();
+        }
+    });
 
-    // Define o modo de marcador como null após adicionar (opcional)
-    // currentMarkerMode = null;
-    // updateMarkerButtons();
+    // Atualiza a lista de relatórios
+    updateReportsList();
 }
 
 // ================= FUNÇÃO PARA ABRIR O MODAL DE RELATÓRIO =================
 function openReportModal(latlng, type, marker) {
-    // Preenche os campos do formulário
-    document.getElementById('problemType').value = type;
+    const typeName = getReportTypeName(type);
+    document.getElementById('problemType').value = typeName;
     document.getElementById('reportLocation').value = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
 
-    // Mostra o modal
     document.getElementById('reportModal').style.display = 'block';
 
-    // Adiciona evento de submit ao formulário
     const form = document.getElementById('reportForm');
     form.onsubmit = function(e) {
         e.preventDefault();
@@ -147,42 +156,185 @@ function submitReport(latlng, type, marker) {
     const photoInput = document.getElementById('photo');
     const photoFile = photoInput.files[0];
 
-    // Aqui você normalmente enviaria os dados para um servidor
-    // Por enquanto, apenas atualizamos o marcador localmente
-
     marker.reportData.description = description;
     marker.reportData.priority = priority;
-    marker.reportData.photo = photoFile ? URL.createObjectURL(photoFile) : null;
 
-    // Atualiza o popup do marcador com as novas informações
-    marker.bindPopup(`
-        <strong>Tipo: ${type}</strong><br>
-        <strong>Descrição:</strong> ${description || 'Nenhuma'}<br>
-        <strong>Prioridade:</strong> ${priority || 'Não definida'}<br>
+    if (photoFile) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            marker.reportData.photoUrl = e.target.result;
+            finalizeReportSubmission(marker);
+        };
+        reader.readAsDataURL(photoFile);
+    } else {
+        finalizeReportSubmission(marker);
+    }
+}
+
+function finalizeReportSubmission(marker) {
+    // Atualiza o popup com as informações completas
+    let popupContent = `
+        <strong>${marker.reportData.typeName}</strong><br>
+        <strong>Descrição:</strong> ${marker.reportData.description || 'Nenhuma'}<br>
+        <strong>Prioridade:</strong> ${marker.reportData.priority || 'Não definida'}<br>
         <strong>Status:</strong> Pendente<br>
-        <small>Reportado em: ${new Date().toLocaleString()}</small>
-        ${photoFile ? `<br><img src="${marker.reportData.photo}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 5px; margin-top: 10px;">` : ''}
-    `);
+        <small>Reportado em: ${marker.reportData.createdAt.toLocaleString()}</small>
+    `;
 
-    // Fecha o modal
+    if (marker.reportData.photoUrl) {
+        popupContent += `<br><img src="${marker.reportData.photoUrl}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 5px; margin-top: 10px;">`;
+    }
+
+    marker.bindPopup(popupContent);
+
     document.getElementById('reportModal').style.display = 'none';
-
-    // Limpa o formulário
     document.getElementById('reportForm').reset();
 
-    // Opcional: Mostra uma mensagem de sucesso
+    // Atualiza a lista de relatórios
+    updateReportsList();
+
     alert('✅ Relatório enviado com sucesso!');
+}
+
+// ================= FUNÇÃO PARA MOSTRAR DETALHES DO MARCADOR (APENAS ADMINS) =================
+function showMarkerDetails(marker) {
+    const data = marker.reportData;
+    let statusText = 'Pendente';
+    let statusClass = 'pending';
+
+    if (data.status === 'progress') {
+        statusText = 'Em Progresso';
+        statusClass = 'progress';
+    } else if (data.status === 'completed') {
+        statusText = 'Concluído';
+        statusClass = 'completed';
+    }
+
+    const content = `
+        <h4>${data.typeName}</h4>
+        <p><strong>Localização:</strong> Lat ${data.latlng.lat.toFixed(6)}, Lng ${data.latlng.lng.toFixed(6)}</p>
+        <p><strong>Descrição:</strong> ${data.description || 'Nenhuma'}</p>
+        <p><strong>Prioridade:</strong> ${data.priority || 'Não definida'}</p>
+        <p><strong>Status:</strong> <span class="status ${statusClass}">${statusText}</span></p>
+        <p><strong>Reportado em:</strong> ${data.createdAt.toLocaleString()}</p>
+        ${data.photoUrl ? `<img src="${data.photoUrl}" style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 5px; margin-top: 10px;">` : ''}
+    `;
+
+    document.getElementById('markerDetailsContent').innerHTML = content;
+    document.getElementById('markerDetailsModal').style.display = 'block';
+}
+
+// ================= FUNÇÃO PARA MARCAR COMO CONCLUÍDO =================
+function markAsCompleted() {
+    // Encontra o marcador ativo (último que abriu o modal)
+    const modal = document.getElementById('markerDetailsModal');
+    if (!modal.style.display || modal.style.display === 'none') return;
+
+    // Procura o marcador correspondente (simplificado - em um sistema real, você armazenaria uma referência)
+    const activeMarker = reportMarkers.find(m => m.reportData.id);
+    if (activeMarker) {
+        activeMarker.reportData.status = 'completed';
+        alert('✅ Marcador marcado como concluído!');
+        updateReportsList();
+        closeMarkerDetailsModal();
+    }
+}
+
+// ================= FUNÇÃO PARA REMOVER MARCADOR (APENAS ADMINS) =================
+function removeMarker() {
+    const modal = document.getElementById('markerDetailsModal');
+    if (!modal.style.display || modal.style.display === 'none') return;
+
+    // Encontra e remove o marcador
+    const markerToRemove = reportMarkers.find(m => m.reportData.id);
+    if (markerToRemove) {
+        map.removeLayer(markerToRemove);
+        reportMarkers = reportMarkers.filter(m => m !== markerToRemove);
+        alert('🗑️ Marcador removido com sucesso!');
+        updateReportsList();
+        closeMarkerDetailsModal();
+    }
+}
+
+// ================= FUNÇÃO PARA ATUALIZAR A LISTA DE RELATÓRIOS RECENTES =================
+function updateReportsList() {
+    const reportsList = document.getElementById('reportsList');
+    reportsList.innerHTML = '';
+
+    if (reportMarkers.length === 0) {
+        reportsList.innerHTML = '<p style="text-align: center; color: #666; padding: 1rem;">Nenhum relatório encontrado.</p>';
+        return;
+    }
+
+    // Ordena por data (mais recente primeiro)
+    const sortedMarkers = [...reportMarkers].sort((a, b) => b.reportData.createdAt - a.reportData.createdAt);
+
+    sortedMarkers.forEach(marker => {
+        const data = marker.reportData;
+        let statusText = 'Pendente';
+        let statusClass = 'pending';
+
+        if (data.status === 'progress') {
+            statusText = 'Em Progresso';
+            statusClass = 'progress';
+        } else if (data.status === 'completed') {
+            statusText = 'Concluído';
+            statusClass = 'completed';
+        }
+
+        const reportItem = document.createElement('div');
+        reportItem.className = 'report-item';
+        reportItem.innerHTML = `
+            <div class="report-header">
+                <span class="report-type">${getReportTypeEmoji(data.type)}</span>
+                <span class="status ${statusClass}">${statusText}</span>
+            </div>
+            <p>Lat: ${data.latlng.lat.toFixed(4)}, Lng: ${data.latlng.lng.toFixed(4)}</p>
+            <small>Reportado em: ${data.createdAt.toLocaleString()}</small>
+        `;
+
+        // Adiciona evento de clique para focar no marcador no mapa
+        reportItem.addEventListener('click', function() {
+            map.setView(data.latlng, 18);
+            marker.openPopup();
+        });
+
+        reportsList.appendChild(reportItem);
+    });
+}
+
+// Funções auxiliares para obter emoji e nome do tipo
+function getReportTypeEmoji(type) {
+    switch(type) {
+        case 'metralha': return '🧱';
+        case 'entulho': return '🗑️';
+        case 'mato-verde': return '🌿';
+        case 'mato-seco': return '🍂';
+        default: return '📍';
+    }
+}
+
+function getReportTypeName(type) {
+    switch(type) {
+        case 'metralha': return 'Metralha';
+        case 'entulho': return 'Entulho';
+        case 'mato-verde': return 'Mato Verde';
+        case 'mato-seco': return 'Mato Seco';
+        default: return 'Desconhecido';
+    }
 }
 
 // ================= FUNÇÃO PARA DEFINIR O MODO DE MARCADOR =================
 function setMarkerMode(type) {
+    if (!currentUser || currentUser.type !== 'admin') {
+        alert('⛔️ Apenas administradores podem adicionar marcadores.');
+        return;
+    }
     currentMarkerMode = type;
     updateMarkerButtons();
     console.log(`Modo de marcador definido para: ${type}`);
-    // O alert foi REMOVIDO conforme solicitado
 }
 
-// Função para atualizar o estilo dos botões de marcador
 function updateMarkerButtons() {
     const buttons = document.querySelectorAll('.marker-btn');
     buttons.forEach(btn => {
@@ -306,14 +458,12 @@ function requestLocation() {
 }
 
 // ================= FUNÇÕES DE LOGIN E CONTROLE DE ACESSO =================
-
 function loginAdmin() {
     const username = document.getElementById('adminUsername').value.trim();
     const password = document.getElementById('adminPassword').value.trim();
     const remember = document.getElementById('rememberAdminLogin').checked;
     const errorDiv = document.getElementById('loginError');
 
-    // Validação simples
     if (username === 'admin' && password === 'senha123') {
         currentUser = {
             type: 'admin',
@@ -346,13 +496,18 @@ function logout() {
 function updateUIForUser() {
     const logoutBtn = document.getElementById('logoutBtn');
     const adminPanel = document.getElementById('adminPanel');
+    const employeeLoginBtn = document.getElementById('employeeLoginBtn');
 
     if (currentUser && currentUser.type === 'admin') {
         logoutBtn.style.display = 'inline-block';
         adminPanel.style.display = 'block';
+        // ESCONDE o botão de Funcionário conforme solicitado
+        employeeLoginBtn.style.display = 'none';
     } else {
         logoutBtn.style.display = 'none';
         adminPanel.style.display = 'none';
+        // MOSTRA o botão de Funcionário
+        employeeLoginBtn.style.display = 'inline-block';
     }
 }
 
@@ -372,7 +527,6 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 // ================= FUNÇÕES AUXILIARES =================
-
 function searchLocation() {
     document.getElementById('locationModal').style.display = 'block';
 }
@@ -416,27 +570,14 @@ function closeModal() {
     document.getElementById('reportModal').style.display = 'none';
 }
 
+function closeMarkerDetailsModal() {
+    document.getElementById('markerDetailsModal').style.display = 'none';
+}
+
 function loginEmployee() {
     alert("Login de funcionário ainda não implementado.");
 }
 
-// Funções do painel do administrador (placeholders)
 function manageUsers() {
     alert("Gerenciamento de usuários ainda não implementado.");
-}
-
-function viewAnalytics() {
-    alert("Visualização de analíticos ainda não implementada.");
-}
-
-function exportData() {
-    alert("Exportação de dados ainda não implementada.");
-}
-
-function markAsCompleted() {
-    alert("Marcar como concluído ainda não implementado.");
-}
-
-function removeMarker() {
-    alert("Remover marcador ainda não implementado.");
 }
