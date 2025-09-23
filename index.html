@@ -3,18 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Mapeamento Secretaria de Serviços Urbanos - Alagoinha PE</title>
+    <title>Sistema de Mapeamento - Secretaria de Serviços Urbanos</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
-        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+
+        /* Estilos para a Página de Login */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem;
+        }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .login-title {
+            font-size: 1.8rem;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .login-subtitle {
+            color: #718096;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .login-options {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .login-btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 180px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .login-btn.employee {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+        }
+
+        .login-btn.admin {
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            color: white;
+        }
+
+        .login-footer {
+            margin-top: 2rem;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        /* Estilos para a Interface do Mapa (inicialmente escondida) */
+        .app-container {
+            display: none; /* Escondida por padrão */
+            height: 100vh;
+            background: #f7fafc;
+        }
+
         .header {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -26,6 +129,7 @@
             position: relative;
             z-index: 1000;
         }
+
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
@@ -34,11 +138,13 @@
             align-items: center;
             gap: 0.5rem;
         }
+
         .user-controls {
             display: flex;
             gap: 1rem;
             align-items: center;
         }
+
         .user-type {
             padding: 0.5rem 1rem;
             border-radius: 25px;
@@ -47,17 +153,21 @@
             font-weight: 500;
             transition: all 0.3s ease;
         }
+
         .citizen { background: #48bb78; color: white; }
         .employee { background: #ed8936; color: white; }
         .admin { background: #e53e3e; color: white; }
+
         .user-type:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
+
         .main-container {
             display: flex;
             height: calc(100vh - 80px);
         }
+
         .sidebar {
             width: 300px;
             background: rgba(255, 255, 255, 0.95);
@@ -66,22 +176,27 @@
             overflow-y: auto;
             box-shadow: 2px 0 20px rgba(0,0,0,0.1);
         }
+
         .map-container {
             flex: 1;
             position: relative;
         }
+
         #map {
             height: 100%;
             width: 100%;
             background: #333;
         }
+
         .marker-controls {
             margin-bottom: 2rem;
         }
+
         .marker-controls h3 {
             margin-bottom: 1rem;
             color: #2d3748;
         }
+
         .marker-btn {
             display: block;
             width: 100%;
@@ -96,21 +211,26 @@
             align-items: center;
             gap: 0.5rem;
         }
+
         .metralha-btn { background: #e53e3e; color: white; }
         .entulho-btn { background: #8B4513; color: white; }
         .mato-verde-btn { background: #2F855A; color: white; }
         .mato-seco-btn { background: #ed8936; color: white; }
+
         .marker-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
+
         .marker-btn.active {
             box-shadow: 0 0 20px rgba(0,0,0,0.3);
             transform: scale(1.05);
         }
+
         .reports-section {
             margin-top: 2rem;
         }
+
         .report-item {
             background: white;
             padding: 1rem;
@@ -120,16 +240,19 @@
             transition: transform 0.2s ease;
             cursor: pointer;
         }
+
         .report-item:hover {
             transform: translateY(-2px);
             background: #f7fafc;
         }
+
         .report-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 0.5rem;
         }
+
         .report-type {
             padding: 0.2rem 0.5rem;
             border-radius: 15px;
@@ -137,15 +260,18 @@
             font-weight: 500;
             color: white;
         }
+
         .status {
             padding: 0.2rem 0.5rem;
             border-radius: 15px;
             font-size: 0.8rem;
             font-weight: 500;
         }
+
         .status.pending { background: #fed7d7; color: #c53030; }
         .status.progress { background: #feebc8; color: #dd6b20; }
         .status.completed { background: #c6f6d5; color: #25855a; }
+
         .modal {
             display: none;
             position: fixed;
@@ -157,6 +283,7 @@
             z-index: 2000;
             backdrop-filter: blur(5px);
         }
+
         .modal-content {
             position: absolute;
             top: 50%;
@@ -169,12 +296,14 @@
             width: 90%;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
         }
+
         .close-btn {
             background: none;
             border: none;
@@ -182,15 +311,18 @@
             cursor: pointer;
             color: #718096;
         }
+
         .form-group {
             margin-bottom: 1rem;
         }
+
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 500;
             color: #2d3748;
         }
+
         .form-group input,
         .form-group textarea,
         .form-group select {
@@ -201,12 +333,14 @@
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
+
         .form-group input:focus,
         .form-group textarea:focus,
         .form-group select:focus {
             outline: none;
             border-color: #667eea;
         }
+
         .submit-btn {
             background: #667eea;
             color: white;
@@ -216,10 +350,13 @@
             cursor: pointer;
             font-weight: 500;
             transition: background 0.3s ease;
+            width: 100%;
         }
+
         .submit-btn:hover {
             background: #5a67d8;
         }
+
         .employee-tracker {
             position: absolute;
             bottom: 20px;
@@ -231,10 +368,12 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             min-width: 250px;
         }
+
         .employee-list {
             max-height: 200px;
             overflow-y: auto;
         }
+
         .employee-item {
             display: flex;
             justify-content: space-between;
@@ -244,11 +383,65 @@
             background: white;
             border-radius: 8px;
         }
+
         .employee-status {
             width: 10px;
             height: 10px;
             border-radius: 50%;
             background: #48bb78;
+        }
+
+        /* Estilo para o marcador de localização do usuário */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+        }
+        .user-location-icon {
+            background: transparent !important;
+            border: none !important;
+        }
+
+        /* Estilo para o painel de admin */
+        #adminPanel {
+            display: none;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px dashed #e53e3e;
+        }
+
+        #adminPanel h3 {
+            color: #e53e3e;
+            margin-bottom: 1rem;
+        }
+
+        /* Estilo aprimorado para o botão "Gerenciar Funcionários" */
+        .manage-employees-btn {
+            background: linear-gradient(135deg, #3182ce, #2c5282);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .manage-employees-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(44, 82, 130, 0.25);
+            background: linear-gradient(135deg, #2c5282, #1a365d);
+        }
+
+        .manage-employees-btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
         }
 
         @media (max-width: 768px) {
@@ -263,95 +456,166 @@
                 flex: 1;
             }
         }
-
-        /* Estilo para o marcador de localização do usuário */
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
-        }
-        .user-location-icon {
-            background: transparent !important;
-            border: none !important;
-        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="logo">
-            🗺️ Sistema de Mapeamento Secretaria de Serviços Urbanos
-        </div>
-        <div class="user-controls">
-            <button id="locationBtn" class="user-type" style="background: #48bb78;" onclick="requestLocation()">📍 Minha Localização</button>
-            <!-- O botão de Funcionário será controlado via JS -->
-            <button id="employeeLoginBtn" class="user-type employee" onclick="openEmployeeLoginModal()">Funcionário</button>
-            <button class="user-type admin" onclick="openAdminLoginModal()">Admin</button>
-            <button id="logoutBtn" class="user-type" style="background: #f56565; color: white; display: none;" onclick="logout()">Sair</button>
+    <!-- Página de Login (Visível por padrão) -->
+    <div class="login-container" id="loginPage">
+        <div class="login-box">
+            <div class="login-logo">
+                🗺️ Secretaria de Serviços Urbanos
+            </div>
+            <h2 class="login-title">Bem-vindo!</h2>
+            <p class="login-subtitle">Selecione seu tipo de acesso para continuar</p>
+            <div class="login-options">
+                <button class="login-btn employee" onclick="showEmployeeLoginForm()">
+                    👷‍♂️ Login Funcionário
+                </button>
+                <button class="login-btn admin" onclick="showAdminLoginForm()">
+                    👨‍💻 Login Administrador
+                </button>
+            </div>
+            <div class="login-footer">
+                © 2025 Prefeitura de Alagoinha - PE
+            </div>
         </div>
     </div>
 
-    <div class="main-container">
-        <div class="sidebar">
-            <div class="marker-controls">
-                <h3>📍 Localização</h3>
-                <button class="marker-btn" style="background: #667eea; color: white; margin-bottom: 1rem;" onclick="requestLocation()">
-                    📍 Usar Minha Localização
-                </button>
-                <button class="marker-btn" style="background: #38b2ac; color: white; margin-bottom: 1rem;" onclick="searchLocation()">
-                    🔍 Buscar Endereço
-                </button>
-                
-                <h3>Adicionar Marcadores</h3>
-                <button class="marker-btn metralha-btn" onclick="setMarkerMode('metralha')">
-                    Metralha
-                </button>
-                <button class="marker-btn entulho-btn" onclick="setMarkerMode('entulho')">
-                    Entulho
-                </button>
-                <button class="marker-btn mato-verde-btn" onclick="setMarkerMode('mato-verde')">
-                    Mato Verde
-                </button>
-                <button class="marker-btn mato-seco-btn" onclick="setMarkerMode('mato-seco')">
-                    Mato Seco
-                </button>
+    <!-- Interface Principal do App (Escondida por padrão) -->
+    <div class="app-container" id="appPage">
+        <div class="header">
+            <div class="logo">
+                🗺️ Sistema de Mapeamento
             </div>
-
-            <!-- Painel de Admin (inicialmente escondido) -->
-            <div id="adminPanel">
-                <h3>🛠️ Painel do Administrador</h3>
-                <button class="admin-action-btn" onclick="manageUsers()">Gerenciar Usuários</button>
-                <!-- Botões "Ver Analíticos" e "Exportar Dados" REMOVIDOS conforme solicitado -->
-            </div>
-
-            <div class="reports-section">
-                <h3>Relatórios Recentes</h3>
-                <!-- ID adicionado para atualização dinâmica -->
-                <div id="reportsList">
-                    <!-- Conteúdo será gerado dinamicamente pelo script.js -->
-                </div>
+            <div class="user-controls">
+                <button id="locationBtn" class="user-type" style="background: #48bb78;" onclick="requestLocation()">📍 Minha Localização</button>
+                <!-- O botão de Funcionário será controlado via JS -->
+                <button id="employeeLoginBtn" class="user-type employee" onclick="openEmployeeLoginModal()">Funcionário</button>
+                <button class="user-type admin" onclick="openAdminLoginModal()">Admin</button>
+                <button id="logoutBtn" class="user-type" style="background: #f56565; color: white;" onclick="logout()">Sair</button>
             </div>
         </div>
 
-        <div class="map-container">
-            <div id="map"></div>
-            
-            <div class="employee-tracker" id="employeeTracker" style="display: none;">
-                <h4>Funcionários Online</h4>
-                <div class="employee-list">
-                    <div class="employee-item">
-                        <span>João Silva</span>
-                        <div class="employee-status"></div>
-                    </div>
-                    <div class="employee-item">
-                        <span>Maria Santos</span>
-                        <div class="employee-status"></div>
-                    </div>
-                    <div class="employee-item">
-                        <span>Pedro Costa</span>
-                        <div class="employee-status"></div>
+        <div class="main-container">
+            <div class="sidebar">
+                <div class="marker-controls">
+                    <h3>📍 Localização</h3>
+                    <button class="marker-btn" style="background: #667eea; color: white; margin-bottom: 1rem;" onclick="requestLocation()">
+                        📍 Usar Minha Localização
+                    </button>
+                    <button class="marker-btn" style="background: #38b2ac; color: white; margin-bottom: 1rem;" onclick="searchLocation()">
+                        🔍 Buscar Endereço
+                    </button>
+                    
+                    <h3>Adicionar Marcadores</h3>
+                    <button class="marker-btn metralha-btn" onclick="setMarkerMode('metralha')">
+                        Metralha
+                    </button>
+                    <button class="marker-btn entulho-btn" onclick="setMarkerMode('entulho')">
+                        Entulho
+                    </button>
+                    <button class="marker-btn mato-verde-btn" onclick="setMarkerMode('mato-verde')">
+                        Mato Verde
+                    </button>
+                    <button class="marker-btn mato-seco-btn" onclick="setMarkerMode('mato-seco')">
+                        Mato Seco
+                    </button>
+                </div>
+
+                <!-- Painel de Admin -->
+                <div id="adminPanel">
+                    <h3>🛠️ Painel do Administrador</h3>
+                    <button class="manage-employees-btn" onclick="manageUsers()">
+                        Gerenciar Funcionários
+                    </button>
+                </div>
+
+                <div class="reports-section">
+                    <h3>Relatórios Recentes</h3>
+                    <div id="reportsList">
+                        <!-- Conteúdo será gerado dinamicamente pelo script.js -->
+                        <p style="text-align: center; color: #666; padding: 1rem;">Nenhum relatório encontrado.</p>
                     </div>
                 </div>
             </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+                
+                <div class="employee-tracker" id="employeeTracker" style="display: none;">
+                    <h4>Funcionários Online</h4>
+                    <div class="employee-list">
+                        <div class="employee-item">
+                            <span>João Silva</span>
+                            <div class="employee-status"></div>
+                        </div>
+                        <div class="employee-item">
+                            <span>Maria Santos</span>
+                            <div class="employee-status"></div>
+                        </div>
+                        <div class="employee-item">
+                            <span>Pedro Costa</span>
+                            <div class="employee-status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para login do Funcionário -->
+    <div class="modal" id="employeeLoginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login do Funcionário</h3>
+                <button class="close-btn" onclick="closeEmployeeLoginModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="employeeUsername">Usuário:</label>
+                <input type="text" id="employeeUsername" placeholder="Digite seu usuário">
+            </div>
+            <div class="form-group">
+                <label for="employeePassword">Senha:</label>
+                <input type="password" id="employeePassword" placeholder="Digite sua senha">
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                    <input type="checkbox" id="rememberEmployeeLogin" style="margin: 0; width: auto;">
+                    Lembrar login
+                </label>
+            </div>
+            <div id="employeeLoginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
+                Usuário ou senha inválidos.
+            </div>
+            <button class="submit-btn" onclick="loginEmployee()">Entrar</button>
+        </div>
+    </div>
+
+    <!-- Modal para login do Admin -->
+    <div class="modal" id="adminLoginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login do Administrador</h3>
+                <button class="close-btn" onclick="closeAdminLoginModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="adminUsername">Usuário:</label>
+                <input type="text" id="adminUsername" placeholder="Digite o nome de usuário">
+            </div>
+            <div class="form-group">
+                <label for="adminPassword">Senha:</label>
+                <input type="password" id="adminPassword" placeholder="Digite a senha do admin">
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
+                    <input type="checkbox" id="rememberAdminLogin" style="margin: 0; width: auto;">
+                    Lembrar login
+                </label>
+            </div>
+            <div id="adminLoginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
+                Usuário ou senha inválidos.
+            </div>
+            <button class="submit-btn" onclick="loginAdmin()">Entrar</button>
         </div>
     </div>
 
@@ -365,7 +629,7 @@
             <div class="form-group">
                 <label>Digite seu endereço, cidade ou ponto de referência:</label>
                 <input type="text" id="addressInput" placeholder="Ex: Rua das Flores, Venturosa PE" style="margin-bottom: 1rem;">
-                <button class="submit-btn" onclick="searchAddress()" style="width: 100%;">🔍 Buscar</button>
+                <button class="submit-btn" onclick="searchAddress()">🔍 Buscar</button>
             </div>
             <div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
                 <p style="margin-bottom: 1rem; color: #666;">Ou use uma localização próxima:</p>
@@ -415,59 +679,6 @@
         </div>
     </div>
 
-    <!-- Modal para login do Admin -->
-    <div class="modal" id="adminLoginModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Login do Administrador</h3>
-                <button class="close-btn" onclick="closeAdminLoginModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label for="adminUsername">Usuário:</label>
-                <input type="text" id="adminUsername" placeholder="Digite o nome de usuário">
-            </div>
-            <div class="form-group">
-                <label for="adminPassword">Senha:</label>
-                <input type="password" id="adminPassword" placeholder="Digite a senha do admin">
-            </div>
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
-                    <input type="checkbox" id="rememberAdminLogin" style="margin: 0; width: auto;">
-                    Lembrar login
-                </label>
-            </div>
-            <div id="loginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
-                Usuário ou senha inválidos.
-            </div>
-            <button class="submit-btn" onclick="loginAdmin()">Entrar</button>
-        </div>
-    </div>
-
-    <!-- Modal para login do Funcionário -->
-    <div class="modal" id="employeeLoginModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Login do Funcionário</h3>
-                <button class="close-btn" onclick="closeEmployeeLoginModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label for="employeeUsername">Usuário:</label>
-                <input type="text" id="employeeUsername" placeholder="Digite o nome de usuário">
-            </div>
-            <div class="form-group">
-                <label for="employeePassword">Senha:</label>
-                <input type="password" id="employeePassword" placeholder="Digite a senha">
-            </div>
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: normal;">
-                    <input type="checkbox" id="rememberEmployeeLogin" style="margin: 0; width: auto;">
-                    Lembrar login
-                </label>
-            </div>
-            <button class="submit-btn" onclick="loginEmployee()">Entrar</button>
-        </div>
-    </div>
-
     <!-- Modal para detalhes do marcador (Admin) -->
     <div class="modal" id="markerDetailsModal">
         <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
@@ -486,7 +697,6 @@
     </div>
 
     <!-- SCRIPTS -->
-    <!-- Corrigido o erro de fechamento da tag -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
