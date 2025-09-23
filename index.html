@@ -251,45 +251,6 @@
             background: #48bb78;
         }
 
-        /* Estilo para o novo painel de admin */
-        #adminPanel {
-            display: none; /* Escondido por padrão */
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 2px dashed #e53e3e;
-        }
-        #adminPanel h3 {
-            color: #e53e3e;
-            margin-bottom: 1rem;
-        }
-
-        /* Estilo aprimorado para o botão "Gerenciar Funcionários" */
-        .manage-employees-btn {
-            background: linear-gradient(135deg, #3182ce, #2c5282);
-            color: white;
-            border: none;
-            padding: 0.8rem 1.2rem;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            width: 100%;
-            margin: 0.5rem 0;
-        }
-        .manage-employees-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(44, 82, 130, 0.25);
-            background: linear-gradient(135deg, #2c5282, #1a365d);
-        }
-        .manage-employees-btn:active {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-        }
-
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
@@ -358,9 +319,8 @@
             <!-- Painel de Admin (inicialmente escondido) -->
             <div id="adminPanel">
                 <h3>🛠️ Painel do Administrador</h3>
-                <button class="manage-employees-btn" onclick="manageUsers()">
-                    Gerenciar Funcionários
-                </button>
+                <button class="admin-action-btn" onclick="manageUsers()">Gerenciar Usuários</button>
+                <!-- Botões "Ver Analíticos" e "Exportar Dados" REMOVIDOS conforme solicitado -->
             </div>
 
             <div class="reports-section">
