@@ -249,23 +249,31 @@
             background: #48bb78;
         }
 
-        /* ============ ESTILO ADICIONADO PARA O MARCADOR DE LOCALIZAÇÃO ============ */
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7);
-            }
-            70% {
-                box-shadow: 0 0 0 10px rgba(72, 187, 120, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(72, 187, 120, 0);
-            }
+        /* Estilo para o novo painel de admin */
+        #adminPanel {
+            display: none; /* Escondido por padrão */
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px dashed #e53e3e;
         }
-        .user-location-icon {
-            background: transparent !important;
-            border: none !important;
+        #adminPanel h3 {
+            color: #e53e3e;
+            margin-bottom: 1rem;
         }
-        /* ====================================================================== */
+        .admin-action-btn {
+            background: #e53e3e;
+            color: white;
+            width: 100%;
+            padding: 0.7rem;
+            border: none;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .admin-action-btn:hover {
+            background: #c53030;
+        }
 
         @media (max-width: 768px) {
             .main-container {
@@ -279,6 +287,17 @@
                 flex: 1;
             }
         }
+
+        /* Estilo para o marcador de localização do usuário */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(72, 187, 120, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+        }
+        .user-location-icon {
+            background: transparent !important;
+            border: none !important;
+        }
     </style>
 </head>
 <body>
@@ -290,9 +309,11 @@
             <button id="locationBtn" class="user-type" style="background: #48bb78;" onclick="requestLocation()">📍 Minha Localização</button>
             <button class="user-type employee" onclick="openEmployeeLoginModal()">Funcionário</button>
             <button class="user-type admin" onclick="openAdminLoginModal()">Admin</button>
+            <!-- Botão de logout (inicialmente escondido) -->
             <button id="logoutBtn" class="user-type" style="background: #f56565; color: white; display: none;" onclick="logout()">Sair</button>
         </div>
     </div>
+
     <div class="main-container">
         <div class="sidebar">
             <div class="marker-controls">
@@ -303,6 +324,7 @@
                 <button class="marker-btn" style="background: #38b2ac; color: white; margin-bottom: 1rem;" onclick="searchLocation()">
                     🔍 Buscar Endereço
                 </button>
+                
                 <h3>Adicionar Marcadores</h3>
                 <button class="marker-btn metralha-btn" onclick="setMarkerMode('metralha')">
                     Metralha
@@ -317,6 +339,15 @@
                     Mato Seco
                 </button>
             </div>
+
+            <!-- Painel de Admin (inicialmente escondido) -->
+            <div id="adminPanel">
+                <h3>🛠️ Painel do Administrador</h3>
+                <button class="admin-action-btn" onclick="manageUsers()">Gerenciar Usuários</button>
+                <button class="admin-action-btn" onclick="viewAnalytics()">Ver Analíticos</button>
+                <button class="admin-action-btn" onclick="exportData()">Exportar Dados</button>
+            </div>
+
             <div class="reports-section">
                 <h3>Relatórios Recentes</h3>
                 <div id="reportsList">
@@ -347,8 +378,10 @@
                 </div>
             </div>
         </div>
+
         <div class="map-container">
             <div id="map"></div>
+            
             <div class="employee-tracker" id="employeeTracker" style="display: none;">
                 <h4>Funcionários Online</h4>
                 <div class="employee-list">
@@ -368,6 +401,7 @@
             </div>
         </div>
     </div>
+
     <!-- Modal para buscar endereço -->
     <div class="modal" id="locationModal">
         <div class="modal-content">
@@ -388,6 +422,7 @@
             </div>
         </div>
     </div>
+
     <!-- Modal para adicionar relatório -->
     <div class="modal" id="reportModal">
         <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
@@ -426,6 +461,7 @@
             </form>
         </div>
     </div>
+
     <!-- Modal para login do Admin -->
     <div class="modal" id="adminLoginModal">
         <div class="modal-content">
@@ -447,9 +483,13 @@
                     Lembrar login
                 </label>
             </div>
+            <div id="loginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
+                Usuário ou senha inválidos.
+            </div>
             <button class="submit-btn" onclick="loginAdmin()">Entrar</button>
         </div>
     </div>
+
     <!-- Modal para login do Funcionário -->
     <div class="modal" id="employeeLoginModal">
         <div class="modal-content">
@@ -474,6 +514,7 @@
             <button class="submit-btn" onclick="loginEmployee()">Entrar</button>
         </div>
     </div>
+
     <!-- Modal para detalhes do marcador (Admin) -->
     <div class="modal" id="markerDetailsModal">
         <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
