@@ -118,9 +118,11 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: transform 0.2s ease;
+            cursor: pointer;
         }
         .report-item:hover {
             transform: translateY(-2px);
+            background: #f7fafc;
         }
         .report-header {
             display: flex;
@@ -249,32 +251,6 @@
             background: #48bb78;
         }
 
-        /* Estilo para o novo painel de admin */
-        #adminPanel {
-            display: none; /* Escondido por padrão */
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 2px dashed #e53e3e;
-        }
-        #adminPanel h3 {
-            color: #e53e3e;
-            margin-bottom: 1rem;
-        }
-        .admin-action-btn {
-            background: #e53e3e;
-            color: white;
-            width: 100%;
-            padding: 0.7rem;
-            border: none;
-            border-radius: 8px;
-            margin: 0.5rem 0;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .admin-action-btn:hover {
-            background: #c53030;
-        }
-
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
@@ -307,9 +283,9 @@
         </div>
         <div class="user-controls">
             <button id="locationBtn" class="user-type" style="background: #48bb78;" onclick="requestLocation()">📍 Minha Localização</button>
-            <button class="user-type employee" onclick="openEmployeeLoginModal()">Funcionário</button>
+            <!-- O botão de Funcionário será controlado via JS -->
+            <button id="employeeLoginBtn" class="user-type employee" onclick="openEmployeeLoginModal()">Funcionário</button>
             <button class="user-type admin" onclick="openAdminLoginModal()">Admin</button>
-            <!-- Botão de logout (inicialmente escondido) -->
             <button id="logoutBtn" class="user-type" style="background: #f56565; color: white; display: none;" onclick="logout()">Sair</button>
         </div>
     </div>
@@ -344,37 +320,14 @@
             <div id="adminPanel">
                 <h3>🛠️ Painel do Administrador</h3>
                 <button class="admin-action-btn" onclick="manageUsers()">Gerenciar Usuários</button>
-                <button class="admin-action-btn" onclick="viewAnalytics()">Ver Analíticos</button>
-                <button class="admin-action-btn" onclick="exportData()">Exportar Dados</button>
+                <!-- Botões "Ver Analíticos" e "Exportar Dados" REMOVIDOS conforme solicitado -->
             </div>
 
             <div class="reports-section">
                 <h3>Relatórios Recentes</h3>
+                <!-- ID adicionado para atualização dinâmica -->
                 <div id="reportsList">
-                    <div class="report-item">
-                        <div class="report-header">
-                            <span class="report-type trash-btn">🗑️ Entulho</span>
-                            <span class="status pending">Pendente</span>
-                        </div>
-                        <p>Rua das Flores, 123</p>
-                        <small>Reportado há 2 horas</small>
-                    </div>
-                    <div class="report-item">
-                        <div class="report-header">
-                            <span class="report-type vegetation-btn">🌿 Mato Seco</span>
-                            <span class="status progress">Em Progresso</span>
-                        </div>
-                        <p>Av. Principal, 456</p>
-                        <small>Reportado há 1 dia</small>
-                    </div>
-                    <div class="report-item">
-                        <div class="report-header">
-                            <span class="report-type debris-btn">🧱 Metralha</span>
-                            <span class="status completed">Concluído</span>
-                        </div>
-                        <p>Praça Central</p>
-                        <small>Concluído ontem</small>
-                    </div>
+                    <!-- Conteúdo será gerado dinamicamente pelo script.js -->
                 </div>
             </div>
         </div>
