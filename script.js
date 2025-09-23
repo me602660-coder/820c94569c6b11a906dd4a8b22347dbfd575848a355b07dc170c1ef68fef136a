@@ -1,56 +1,73 @@
 // script.js
 
-// Inicialização do Mapa
+// Variáveis globais
 let map;
-let userMarker = null; // Variável global para armazenar o marcador do usuário
+let userMarker = null;
+let currentUser = null; // Armazena o usuário logado
 
+// Inicialização do Mapa com Duas Camadas
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializa o mapa centrado em Alagoinha, PE (coordenadas aproximadas)
-    map = L.map('map').setView([-7.8375, -35.5781], 13);
+    // Inicializa o mapa centrado em Alagoinha, PE
+    map = L.map('map', {
+        center: [-7.8375, -35.5781],
+        zoom: 13,
+        layers: [] // Inicia sem camada ativa
+    });
 
-    // Adiciona camada de tiles (OpenStreetMap)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    // Define as camadas de mapa
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    });
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 19
+    });
+
+    // Objeto com as camadas para o controle de camadas
+    const baseMaps = {
+        "Mapa (OSM)": osmLayer,
+        "Satélite (Esri)": satelliteLayer
+    };
+
+    // Adiciona o controle de camadas ao mapa
+    L.control.layers(baseMaps).addTo(map);
+
+    // Define a camada padrão (OpenStreetMap)
+    osmLayer.addTo(map);
 });
 
 // ================= FUNÇÃO DE LOCALIZAÇÃO APRIMORADA =================
 function requestLocation() {
-    // Verifica se o navegador suporta Geolocation
     if (!navigator.geolocation) {
         alert("⚠️ Seu navegador não suporta Geolocalização.");
         return;
     }
 
-    // Mostra um indicador de carregamento para o usuário
     const locationBtn = document.getElementById('locationBtn');
     const originalButtonText = locationBtn.innerHTML;
     locationBtn.innerHTML = '📍 Buscando...';
-    locationBtn.disabled = true; // Desabilita o botão durante a busca
+    locationBtn.disabled = true;
 
-    // Opções para obter a localização mais precisa possível
     const options = {
-        enableHighAccuracy: true, // Solicita a melhor precisão disponível (GPS)
-        timeout: 15000,           // Tempo máximo de espera por uma resposta (15 segundos)
-        maximumAge: 0             // Não aceita dados em cache, sempre busca nova posição
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
     };
 
-    // Função de sucesso
     const successCallback = (position) => {
         const { latitude, longitude } = position.coords;
-        const accuracy = position.coords.accuracy; // Precisão em metros
+        const accuracy = position.coords.accuracy;
 
-        console.log(`✅ Localização obtida com sucesso: Lat ${latitude}, Lng ${longitude}. Precisão: ±${accuracy.toFixed(2)}m`);
+        console.log(`✅ Localização obtida: Lat ${latitude}, Lng ${longitude}. Precisão: ±${accuracy.toFixed(2)}m`);
 
-        // Centraliza o mapa na localização do usuário com zoom alto
         map.setView([latitude, longitude], 18);
 
-        // Remove o marcador anterior, se existir
         if (userMarker) {
             map.removeLayer(userMarker);
         }
 
-        // Cria um novo marcador estilizado e animado para o usuário
         userMarker = L.marker([latitude, longitude], {
             icon: L.divIcon({
                 className: 'user-location-icon',
@@ -68,7 +85,6 @@ function requestLocation() {
             })
         }).addTo(map);
 
-        // Adiciona um popup informativo ao marcador
         userMarker.bindPopup(`
             <strong>📍 Sua Localização</strong><br>
             Latitude: ${latitude.toFixed(6)}<br>
@@ -77,27 +93,23 @@ function requestLocation() {
             <small>Última atualização: ${new Date().toLocaleTimeString()}</small>
         `).openPopup();
 
-        // Restaura o texto e habilita o botão
         locationBtn.innerHTML = originalButtonText;
         locationBtn.disabled = false;
     };
 
-    // Função de erro
     const errorCallback = (error) => {
         console.error("❌ Erro ao obter localização:", error);
-
         let errorMessage = "❌ Não foi possível obter sua localização precisa.";
 
         switch(error.code) {
             case error.PERMISSION_DENIED:
-                errorMessage = "⛔️ Permissão de localização negada. Por favor, habilite-a nas configurações do seu navegador.";
+                errorMessage = "⛔️ Permissão de localização negada. Por favor, habilite-a nas configurações.";
                 break;
             case error.POSITION_UNAVAILABLE:
-                errorMessage = "📡 Sinal de localização indisponível. Tente novamente ou verifique sua conexão GPS.";
+                errorMessage = "📡 Sinal de localização indisponível. Tente novamente.";
                 break;
             case error.TIMEOUT:
-                errorMessage = "⏳ Tempo esgotado. Tentando novamente com precisão reduzida...";
-                // Fallback: Tenta novamente com precisão reduzida
+                errorMessage = "⏳ Tempo esgotado. Tentando com precisão reduzida...";
                 retryWithLowAccuracy();
                 return;
             default:
@@ -106,17 +118,15 @@ function requestLocation() {
         }
 
         alert(errorMessage);
-        // Restaura o botão mesmo em caso de erro
         locationBtn.innerHTML = originalButtonText;
         locationBtn.disabled = false;
     };
 
-    // Função de fallback para precisão reduzida
     function retryWithLowAccuracy() {
         const lowAccuracyOptions = {
-            enableHighAccuracy: false, // Aceita fontes menos precisas (como Wi-Fi)
+            enableHighAccuracy: false,
             timeout: 10000,
-            maximumAge: 60000 // Aceita dados com até 1 minuto de cache
+            maximumAge: 60000
         };
 
         navigator.geolocation.getCurrentPosition(
@@ -126,8 +136,7 @@ function requestLocation() {
             },
             (error) => {
                 console.error("❌ Falha mesmo com precisão reduzida:", error);
-                alert("❌ Todas as tentativas de obter sua localização falharam. Por favor, tente novamente mais tarde.");
-                // Restaura o botão
+                alert("❌ Todas as tentativas falharam. Tente novamente mais tarde.");
                 const locationBtn = document.getElementById('locationBtn');
                 locationBtn.innerHTML = '📍 Minha Localização';
                 locationBtn.disabled = false;
@@ -136,12 +145,90 @@ function requestLocation() {
         );
     }
 
-    // Primeira tentativa com alta precisão
     navigator.geolocation.getCurrentPosition(successCallback, errorCallback, options);
 }
 
-// ============= FUNÇÕES AUXILIARES (PLACEHOLDERS) =============
-// Estas funções precisam ser implementadas conforme a lógica do seu sistema.
+// ================= FUNÇÕES DE LOGIN E CONTROLE DE ACESSO =================
+
+// Função para login de Administrador
+function loginAdmin() {
+    const username = document.getElementById('adminUsername').value.trim();
+    const password = document.getElementById('adminPassword').value.trim();
+    const remember = document.getElementById('rememberAdminLogin').checked;
+    const errorDiv = document.getElementById('loginError');
+
+    // Validação simples (em um sistema real, isso seria feito no backend)
+    if (username === 'admin' && password === 'senha123') {
+        // Login bem-sucedido
+        currentUser = {
+            type: 'admin',
+            username: username
+        };
+
+        // Salva no localStorage se "Lembrar login" estiver marcado
+        if (remember) {
+            localStorage.setItem('userSession', JSON.stringify(currentUser));
+        }
+
+        // Fecha o modal
+        closeAdminLoginModal();
+
+        // Atualiza a interface do usuário
+        updateUIForUser();
+
+        alert('✅ Login de administrador bem-sucedido!');
+    } else {
+        // Login falhou
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// Função para logout
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('userSession');
+    updateUIForUser();
+    alert('👋 Você saiu da sua conta.');
+}
+
+// Função para atualizar a interface com base no usuário logado
+function updateUIForUser() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    const adminPanel = document.getElementById('adminPanel');
+
+    if (currentUser && currentUser.type === 'admin') {
+        // Mostra o botão de logout
+        logoutBtn.style.display = 'inline-block';
+        // Mostra o painel de admin
+        adminPanel.style.display = 'block';
+    } else {
+        // Esconde o botão de logout
+        logoutBtn.style.display = 'none';
+        // Esconde o painel de admin
+        adminPanel.style.display = 'none';
+    }
+}
+
+// Função para verificar se há uma sessão salva ao carregar a página
+window.addEventListener('DOMContentLoaded', function() {
+    const savedSession = localStorage.getItem('userSession');
+    if (savedSession) {
+        try {
+            currentUser = JSON.parse(savedSession);
+            if (currentUser.type === 'admin') {
+                updateUIForUser();
+            }
+        } catch (e) {
+            console.error("Erro ao carregar sessão salva:", e);
+            localStorage.removeItem('userSession');
+        }
+    }
+});
+
+// ================= FUNÇÕES AUXILIARES =================
 
 function searchLocation() {
     document.getElementById('locationModal').style.display = 'block';
@@ -194,12 +281,17 @@ function loginEmployee() {
     alert("Login de funcionário ainda não implementado.");
 }
 
-function loginAdmin() {
-    alert("Login de administrador ainda não implementado.");
+// Funções do painel do administrador (placeholders)
+function manageUsers() {
+    alert("Gerenciamento de usuários ainda não implementado.");
 }
 
-function logout() {
-    alert("Logout ainda não implementado.");
+function viewAnalytics() {
+    alert("Visualização de analíticos ainda não implementada.");
+}
+
+function exportData() {
+    alert("Exportação de dados ainda não implementada.");
 }
 
 function markAsCompleted() {
