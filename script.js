@@ -3,7 +3,9 @@
 // Variáveis globais
 let map;
 let userMarker = null;
-let currentUser = null; // Armazena o usuário logado
+let currentUser = null;
+let currentMarkerMode = null; // Armazena o modo de marcador ativo ('metralha', 'entulho', etc.)
+let reportMarkers = []; // Array para armazenar todos os marcadores de relatório
 
 // Inicialização do Mapa com Duas Camadas
 document.addEventListener('DOMContentLoaded', function() {
@@ -11,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     map = L.map('map', {
         center: [-7.8375, -35.5781],
         zoom: 13,
-        layers: [] // Inicia sem camada ativa
+        layers: []
     });
 
     // Define as camadas de mapa
@@ -36,7 +38,162 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Define a camada padrão (OpenStreetMap)
     osmLayer.addTo(map);
+
+    // Adiciona evento de clique no mapa para adicionar marcadores
+    map.on('click', function(e) {
+        if (currentMarkerMode) {
+            addReportMarker(e.latlng, currentMarkerMode);
+        }
+    });
 });
+
+// ================= FUNÇÃO PARA ADICIONAR MARCADORES DE RELATÓRIO =================
+function addReportMarker(latlng, type) {
+    // Define o ícone com base no tipo
+    let iconColor, iconText;
+    switch(type) {
+        case 'metralha':
+            iconColor = '#e53e3e';
+            iconText = '🧱';
+            break;
+        case 'entulho':
+            iconColor = '#8B4513';
+            iconText = '🗑️';
+            break;
+        case 'mato-verde':
+            iconColor = '#2F855A';
+            iconText = '🌿';
+            break;
+        case 'mato-seco':
+            iconColor = '#ed8936';
+            iconText = '🍂';
+            break;
+        default:
+            iconColor = '#667eea';
+            iconText = '📍';
+    }
+
+    // Cria o ícone personalizado
+    const markerIcon = L.divIcon({
+        className: 'report-marker-icon',
+        html: `<div style="
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: ${iconColor};
+            color: white;
+            border-radius: 50%;
+            border: 3px solid white;
+            font-size: 18px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            cursor: pointer;
+        ">${iconText}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+
+    // Cria o marcador
+    const marker = L.marker(latlng, { icon: markerIcon }).addTo(map);
+
+    // Armazena informações no marcador
+    marker.reportData = {
+        type: type,
+        latlng: latlng,
+        status: 'pending',
+        createdAt: new Date()
+    };
+
+    // Adiciona o marcador ao array global
+    reportMarkers.push(marker);
+
+    // Abre o modal de relatório automaticamente
+    openReportModal(latlng, type, marker);
+
+    // Opcional: Adiciona um popup ao marcador
+    marker.bindPopup(`
+        <strong>Tipo: ${type}</strong><br>
+        Status: Pendente<br>
+        Clique para mais detalhes.
+    `);
+
+    // Define o modo de marcador como null após adicionar (opcional)
+    // currentMarkerMode = null;
+    // updateMarkerButtons();
+}
+
+// ================= FUNÇÃO PARA ABRIR O MODAL DE RELATÓRIO =================
+function openReportModal(latlng, type, marker) {
+    // Preenche os campos do formulário
+    document.getElementById('problemType').value = type;
+    document.getElementById('reportLocation').value = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
+
+    // Mostra o modal
+    document.getElementById('reportModal').style.display = 'block';
+
+    // Adiciona evento de submit ao formulário
+    const form = document.getElementById('reportForm');
+    form.onsubmit = function(e) {
+        e.preventDefault();
+        submitReport(latlng, type, marker);
+    };
+}
+
+// ================= FUNÇÃO PARA ENVIAR O RELATÓRIO =================
+function submitReport(latlng, type, marker) {
+    const description = document.getElementById('description').value;
+    const priority = document.getElementById('priority').value;
+    const photoInput = document.getElementById('photo');
+    const photoFile = photoInput.files[0];
+
+    // Aqui você normalmente enviaria os dados para um servidor
+    // Por enquanto, apenas atualizamos o marcador localmente
+
+    marker.reportData.description = description;
+    marker.reportData.priority = priority;
+    marker.reportData.photo = photoFile ? URL.createObjectURL(photoFile) : null;
+
+    // Atualiza o popup do marcador com as novas informações
+    marker.bindPopup(`
+        <strong>Tipo: ${type}</strong><br>
+        <strong>Descrição:</strong> ${description || 'Nenhuma'}<br>
+        <strong>Prioridade:</strong> ${priority || 'Não definida'}<br>
+        <strong>Status:</strong> Pendente<br>
+        <small>Reportado em: ${new Date().toLocaleString()}</small>
+        ${photoFile ? `<br><img src="${marker.reportData.photo}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 5px; margin-top: 10px;">` : ''}
+    `);
+
+    // Fecha o modal
+    document.getElementById('reportModal').style.display = 'none';
+
+    // Limpa o formulário
+    document.getElementById('reportForm').reset();
+
+    // Opcional: Mostra uma mensagem de sucesso
+    alert('✅ Relatório enviado com sucesso!');
+}
+
+// ================= FUNÇÃO PARA DEFINIR O MODO DE MARCADOR =================
+function setMarkerMode(type) {
+    currentMarkerMode = type;
+    updateMarkerButtons();
+    console.log(`Modo de marcador definido para: ${type}`);
+    // O alert foi REMOVIDO conforme solicitado
+}
+
+// Função para atualizar o estilo dos botões de marcador
+function updateMarkerButtons() {
+    const buttons = document.querySelectorAll('.marker-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    const activeButton = document.querySelector(`.${currentMarkerMode}-btn`);
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
+}
 
 // ================= FUNÇÃO DE LOCALIZAÇÃO APRIMORADA =================
 function requestLocation() {
@@ -150,35 +307,28 @@ function requestLocation() {
 
 // ================= FUNÇÕES DE LOGIN E CONTROLE DE ACESSO =================
 
-// Função para login de Administrador
 function loginAdmin() {
     const username = document.getElementById('adminUsername').value.trim();
     const password = document.getElementById('adminPassword').value.trim();
     const remember = document.getElementById('rememberAdminLogin').checked;
     const errorDiv = document.getElementById('loginError');
 
-    // Validação simples (em um sistema real, isso seria feito no backend)
+    // Validação simples
     if (username === 'admin' && password === 'senha123') {
-        // Login bem-sucedido
         currentUser = {
             type: 'admin',
             username: username
         };
 
-        // Salva no localStorage se "Lembrar login" estiver marcado
         if (remember) {
             localStorage.setItem('userSession', JSON.stringify(currentUser));
         }
 
-        // Fecha o modal
         closeAdminLoginModal();
-
-        // Atualiza a interface do usuário
         updateUIForUser();
 
         alert('✅ Login de administrador bem-sucedido!');
     } else {
-        // Login falhou
         errorDiv.style.display = 'block';
         setTimeout(() => {
             errorDiv.style.display = 'none';
@@ -186,7 +336,6 @@ function loginAdmin() {
     }
 }
 
-// Função para logout
 function logout() {
     currentUser = null;
     localStorage.removeItem('userSession');
@@ -194,25 +343,19 @@ function logout() {
     alert('👋 Você saiu da sua conta.');
 }
 
-// Função para atualizar a interface com base no usuário logado
 function updateUIForUser() {
     const logoutBtn = document.getElementById('logoutBtn');
     const adminPanel = document.getElementById('adminPanel');
 
     if (currentUser && currentUser.type === 'admin') {
-        // Mostra o botão de logout
         logoutBtn.style.display = 'inline-block';
-        // Mostra o painel de admin
         adminPanel.style.display = 'block';
     } else {
-        // Esconde o botão de logout
         logoutBtn.style.display = 'none';
-        // Esconde o painel de admin
         adminPanel.style.display = 'none';
     }
 }
 
-// Função para verificar se há uma sessão salva ao carregar a página
 window.addEventListener('DOMContentLoaded', function() {
     const savedSession = localStorage.getItem('userSession');
     if (savedSession) {
@@ -251,10 +394,6 @@ function goToLocation(lat, lng, name) {
     userMarker = L.marker([lat, lng]).addTo(map)
         .bindPopup(`📍 ${name}`).openPopup();
     closeLocationModal();
-}
-
-function setMarkerMode(type) {
-    alert(`Modo de marcador definido para: ${type}`);
 }
 
 function openEmployeeLoginModal() {
