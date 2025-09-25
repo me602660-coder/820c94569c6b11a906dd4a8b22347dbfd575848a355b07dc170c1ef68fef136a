@@ -1,4 +1,7 @@
 // script.js
+// Importa o cliente do Supabase
+import { supabase } from './supabase-client.js';
+
 let map;
 let userMarker = null;
 let currentUser = null;
@@ -19,7 +22,7 @@ function closeAdminLoginModal() {
     document.getElementById('adminLoginModal').style.display = 'none';
 }
 
-// === Cadastro de Funcionário ===
+// === Cadastro de Funcionário com Supabase ===
 function openRegisterModal() {
     document.getElementById('registerModal').style.display = 'block';
 }
@@ -29,7 +32,6 @@ function closeRegisterModal() {
     document.getElementById('registerError').style.display = 'none';
 }
 
-// Validação e cadastro (frontend-only)
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
@@ -40,7 +42,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function registerEmployee() {
+async function registerEmployee() {
+    const fullName = document.getElementById('fullName').value.trim();
     const username = document.getElementById('newUsername').value.trim();
     const password = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
@@ -52,7 +55,7 @@ function registerEmployee() {
         setTimeout(() => errorDiv.style.display = 'none', 4000);
     }
 
-    if (!username || !password) {
+    if (!fullName || !username || !password) {
         showError('Todos os campos são obrigatórios.');
         return;
     }
@@ -65,41 +68,97 @@ function registerEmployee() {
         return;
     }
 
-    // Em produção: enviar para Supabase
+    // Tenta inserir o novo funcionário no banco de dados
+    const { data, error } = await supabase
+        .from('employees')
+        .insert([
+            { 
+                full_name: fullName, 
+                username: username, 
+                password_hash: password // Em produção, faça o hash no backend!
+            }
+        ])
+        .select();
+
+    if (error) {
+        if (error.code === '23505') { // Violação de unicidade
+            showError('Este nome de usuário já está em uso.');
+        } else {
+            console.error('Erro no cadastro:', error);
+            showError('Erro ao cadastrar. Tente novamente.');
+        }
+        return;
+    }
+
     alert('✅ Funcionário cadastrado com sucesso!\nAgora ele pode fazer login.');
     closeRegisterModal();
 }
 
-// === Login Funcionário ===
-function loginEmployee() {
+// === Login Funcionário com Supabase ===
+async function loginEmployee() {
     const username = document.getElementById('employeeUsername').value.trim();
     const password = document.getElementById('employeePassword').value.trim();
     const errorDiv = document.getElementById('employeeLoginError');
 
-    if (username && password) {
-        currentUser = { type: 'employee', username };
-        closeEmployeeLoginModal();
-        loadAppInterface();
-    } else {
+    const { data, error } = await supabase
+        .from('employees')
+        .select('id, full_name, username, is_admin')
+        .eq('username', username)
+        .eq('password_hash', password) // Em produção, use autenticação real com hash
+        .single();
+
+    if (error || !data) {
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 3000);
+        return;
     }
+
+    // Verifica se é admin (não deveria acontecer aqui, mas é um check de segurança)
+    if (data.is_admin) {
+        errorDiv.textContent = 'Use o login de Administrador.';
+        errorDiv.style.display = 'block';
+        setTimeout(() => errorDiv.style.display = 'none', 3000);
+        return;
+    }
+
+    currentUser = { 
+        type: 'employee', 
+        id: data.id,
+        username: data.username,
+        fullName: data.full_name
+    };
+    closeEmployeeLoginModal();
+    loadAppInterface();
 }
 
-// === Login Admin ===
-function loginAdmin() {
+// === Login Admin com Supabase ===
+async function loginAdmin() {
     const username = document.getElementById('adminUsername').value.trim();
     const password = document.getElementById('adminPassword').value.trim();
     const errorDiv = document.getElementById('adminLoginError');
 
-    if (username === 'admin' && password === 'senha123') {
-        currentUser = { type: 'admin', username };
-        closeAdminLoginModal();
-        loadAppInterface();
-    } else {
+    const { data, error } = await supabase
+        .from('employees')
+        .select('id, full_name, username, is_admin')
+        .eq('username', username)
+        .eq('password_hash', password) // Em produção, use autenticação real com hash
+        .eq('is_admin', true)
+        .single();
+
+    if (error || !data) {
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 3000);
+        return;
     }
+
+    currentUser = { 
+        type: 'admin', 
+        id: data.id,
+        username: data.username,
+        fullName: data.full_name
+    };
+    closeAdminLoginModal();
+    loadAppInterface();
 }
 
 // === Carregar Interface do App ===
@@ -108,27 +167,20 @@ function loadAppInterface() {
     document.getElementById('appPage').style.display = 'block';
     initializeMap();
     updateUIForUser();
-
-    // Verifica sessão salva
-    const remember = document.querySelector('#rememberAdminLogin')?.checked || 
-                     document.querySelector('#rememberEmployeeLogin')?.checked;
-    if (remember) {
-        localStorage.setItem('userSession', JSON.stringify(currentUser));
-    }
 }
 
-// === Inicializar Mapa com Zoom Limitado ===
+// === Inicializar Mapa ===
 function initializeMap() {
     map = L.map('map', {
         center: [-7.8375, -35.5781],
         zoom: 13,
-        maxZoom: 18, // ←←← LIMITE DE ZOOM PARA EVITAR ERRO
+        maxZoom: 18,
         layers: []
     });
 
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 18 // ←←←
+        maxZoom: 18
     });
 
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -151,7 +203,7 @@ function initializeMap() {
     });
 }
 
-// === Funções de Marcador ===
+// === Funções de Marcador (sem alterações para esta integração) ===
 function addReportMarker(latlng, type) {
     let iconColor, iconText, typeName;
     switch(type) {
@@ -257,7 +309,6 @@ function finalizeReport(marker) {
     updateReportsList();
 }
 
-// === Detalhes e Gerenciamento ===
 function showMarkerDetails(marker) {
     const d = marker.reportData;
     let statusText = 'Pendente', statusClass = 'pending';
@@ -299,7 +350,6 @@ function removeMarker() {
     }
 }
 
-// === Sincronização da Lista ===
 function updateReportsList() {
     const list = document.getElementById('reportsList');
     list.innerHTML = '';
@@ -332,7 +382,6 @@ function updateReportsList() {
     });
 }
 
-// === Auxiliares ===
 function getReportTypeEmoji(t) {
     return t === 'metralha' ? '🧱' : t === 'entulho' ? '🗑️' : t === 'mato-verde' ? '🌿' : t === 'mato-seco' ? '🍂' : '📍';
 }
@@ -398,7 +447,6 @@ function requestLocation() {
 // === Controle de Sessão e Logout ===
 function logout() {
     currentUser = null;
-    localStorage.removeItem('userSession');
     document.getElementById('appPage').style.display = 'none';
     document.getElementById('loginPage').style.display = 'flex';
     if (map) {
@@ -423,22 +471,6 @@ function updateUIForUser() {
         empBtn.style.display = 'none';
     }
 }
-
-// === Carregar sessão salva ===
-document.addEventListener('DOMContentLoaded', function() {
-    const saved = localStorage.getItem('userSession');
-    if (saved) {
-        try {
-            currentUser = JSON.parse(saved);
-            if (currentUser.type === 'admin' || currentUser.type === 'employee') {
-                loadAppInterface();
-            }
-        } catch (e) {
-            console.error("Erro ao carregar sessão:", e);
-            localStorage.removeItem('userSession');
-        }
-    }
-});
 
 // === Funções Auxiliares de Modal ===
 function searchLocation() { document.getElementById('locationModal').style.display = 'block'; }
