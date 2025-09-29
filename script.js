@@ -1,80 +1,56 @@
-// script.js (com autenticação real via Supabase Auth)
-import { supabase } from './supabase-client.js';
-
+// script.js — SEM import, TUDO global
 let map;
 let userMarker = null;
 let currentUser = null;
 let currentMarkerMode = null;
 let reportMarkers = [];
 
-// === Funções de Abertura de Modal (sem onclick no HTML) ===
-document.addEventListener('DOMContentLoaded', async function () {
-    // Vincula botões da tela de login
-    document.getElementById('btnLoginEmployee')?.addEventListener('click', () => {
-        document.getElementById('employeeLoginModal').style.display = 'block';
-    });
-    document.getElementById('btnLoginAdmin')?.addEventListener('click', () => {
-        document.getElementById('adminLoginModal').style.display = 'block';
-    });
-    document.getElementById('btnRegister')?.addEventListener('click', () => {
-        document.getElementById('registerModal').style.display = 'block';
-    });
+// === Funções de Login ===
+function showEmployeeLoginForm() {
+    document.getElementById('employeeLoginModal').style.display = 'block';
+}
+function showAdminLoginForm() {
+    document.getElementById('adminLoginModal').style.display = 'block';
+}
+function closeEmployeeLoginModal() {
+    document.getElementById('employeeLoginModal').style.display = 'none';
+}
+function closeAdminLoginModal() {
+    document.getElementById('adminLoginModal').style.display = 'none';
+}
 
-    // Fecha modais com X
-    document.querySelectorAll('.close-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            btn.closest('.modal').style.display = 'none';
+// === Cadastro de Funcionário ===
+function openRegisterModal() {
+    document.getElementById('registerModal').style.display = 'block';
+}
+function closeRegisterModal() {
+    document.getElementById('registerModal').style.display = 'none';
+    document.getElementById('registerForm').reset();
+    document.getElementById('registerError').style.display = 'none';
+}
+
+// Validação e cadastro (frontend-only)
+document.addEventListener('DOMContentLoaded', function() {
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            registerEmployee();
         });
-    });
-
-    // Verifica se já está logado
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-        await loadUserProfile(session.user.id);
     }
 });
 
-// === Carregar perfil do usuário ===
-async function loadUserProfile(userId) {
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', userId)
-        .single();
-
-    if (error || !profile) {
-        alert('❌ Perfil não encontrado. Faça logout e tente novamente.');
-        return;
-    }
-
-    currentUser = {
-        id: userId,
-        email: supabase.auth.getUser().email,
-        fullName: profile.full_name,
-        type: profile.role // 'employee' ou 'admin'
-    };
-
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('appPage').style.display = 'block';
-    initializeMap();
-    updateUIForUser();
-}
-
-// === Cadastro de Funcionário (via Supabase Auth) ===
-async function registerEmployee() {
-    const fullName = document.getElementById('fullName')?.value.trim();
-    const email = document.getElementById('newEmail')?.value.trim();
-    const password = document.getElementById('newPassword')?.value;
-    const confirmPassword = document.getElementById('confirmPassword')?.value;
+function registerEmployee() {
+    const username = document.getElementById('newUsername').value.trim();
+    const password = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
     const errorDiv = document.getElementById('registerError');
-
-    const showError = (msg) => {
+    function showError(msg) {
         errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 4000);
-    };
-
-    if (!fullName || !email || !password) {
+    }
+    if (!username || !password) {
         showError('Todos os campos são obrigatórios.');
         return;
     }
@@ -86,97 +62,49 @@ async function registerEmployee() {
         showError('As senhas não coincidem.');
         return;
     }
-
-    // 1. Cria usuário no auth
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } }
-    });
-
-    if (error) {
-        showError('Erro no cadastro: ' + (error.message || 'Tente novamente.'));
-        return;
-    }
-
-    if (data.user) {
-        // 2. Cria perfil com role = 'employee'
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({ id: data.user.id, full_name: fullName, role: 'employee' });
-
-        if (profileError) {
-            console.error('Erro ao criar perfil:', profileError);
-            showError('Usuário criado, mas erro no perfil. Contate o admin.');
-        } else {
-            alert('✅ Funcionário cadastrado com sucesso!\nEle pode fazer login com seu e-mail.');
-            closeRegisterModal();
-        }
-    }
+    alert('✅ Funcionário cadastrado com sucesso!\nAgora ele pode fazer login.');
+    closeRegisterModal();
 }
 
-// === Login (Funcionário ou Admin) ===
-async function loginWithEmail(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, error: error.message };
-
-    await loadUserProfile(data.user.id);
-    return { success: true };
-}
-
-// === Funções de Interface ===
-function closeRegisterModal() {
-    document.getElementById('registerModal').style.display = 'none';
-    document.getElementById('registerForm')?.reset();
-    document.getElementById('registerError').style.display = 'none';
-}
-
-// === Login de Funcionário (botão no modal) ===
-document.getElementById('employeeLoginModal')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('employeeEmail').value.trim();
+// === Login Funcionário ===
+function loginEmployee() {
+    const username = document.getElementById('employeeUsername').value.trim();
     const password = document.getElementById('employeePassword').value.trim();
     const errorDiv = document.getElementById('employeeLoginError');
-
-    const result = await loginWithEmail(email, password);
-    if (!result.success) {
+    if (username && password) {
+        currentUser = { type: 'employee', username };
+        closeEmployeeLoginModal();
+        loadAppInterface();
+    } else {
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 3000);
-    } else {
-        document.getElementById('employeeLoginModal').style.display = 'none';
-    }
-});
-
-// === Login de Admin (botão no modal) ===
-document.getElementById('adminLoginModal')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('adminEmail').value.trim();
-    const password = document.getElementById('adminPassword').value.trim();
-    const errorDiv = document.getElementById('adminLoginError');
-
-    const result = await loginWithEmail(email, password);
-    if (!result.success) {
-        errorDiv.style.display = 'block';
-        setTimeout(() => errorDiv.style.display = 'none', 3000);
-    } else {
-        document.getElementById('adminLoginModal').style.display = 'none';
-    }
-});
-
-// === Logout ===
-async function logout() {
-    await supabase.auth.signOut();
-    currentUser = null;
-    document.getElementById('appPage').style.display = 'none';
-    document.getElementById('loginPage').style.display = 'flex';
-    if (map) {
-        map.remove();
-        map = null;
-        reportMarkers = [];
     }
 }
 
-// === Restante do sistema (mapa, marcadores, etc.) ===
+// === Login Admin ===
+function loginAdmin() {
+    const username = document.getElementById('adminUsername').value.trim();
+    const password = document.getElementById('adminPassword').value.trim();
+    const errorDiv = document.getElementById('adminLoginError');
+    if (username === 'admin' && password === 'senha123') {
+        currentUser = { type: 'admin', username };
+        closeAdminLoginModal();
+        loadAppInterface();
+    } else {
+        errorDiv.style.display = 'block';
+        setTimeout(() => errorDiv.style.display = 'none', 3000);
+    }
+}
+
+// === Carregar Interface do App ===
+function loadAppInterface() {
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appPage').style.display = 'block';
+    initializeMap();
+    updateUIForUser();
+}
+
+// === Inicializar Mapa com Zoom Limitado ===
 function initializeMap() {
     map = L.map('map', {
         center: [-7.8375, -35.5781],
@@ -194,15 +122,14 @@ function initializeMap() {
     });
     L.control.layers({ "Mapa (OSM)": osmLayer, "Satélite (Esri)": satelliteLayer }).addTo(map);
     osmLayer.addTo(map);
-
     map.on('click', function(e) {
-        if (currentUser && currentMarkerMode) {
+        if (currentUser && (currentUser.type === 'admin' || currentUser.type === 'employee') && currentMarkerMode) {
             addReportMarker(e.latlng, currentMarkerMode);
         }
     });
 }
 
-// === Funções de Marcador (sem alteração lógica, apenas mantidas) ===
+// === Funções de Marcador (mantidas iguais) ===
 function addReportMarker(latlng, type) {
     let iconColor, iconText, typeName;
     switch(type) {
@@ -241,7 +168,6 @@ function openReportModal(latlng, type, marker) {
     document.getElementById('problemType').value = typeName;
     document.getElementById('reportLocation').value = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
     document.getElementById('reportModal').style.display = 'block';
-
     document.getElementById('reportForm').onsubmit = (e) => {
         e.preventDefault();
         submitReport(latlng, type, marker);
@@ -405,3 +331,15 @@ function goToLocation(lat, lng, name) {
 }
 function closeModal() { document.getElementById('reportModal').style.display = 'none'; }
 function manageUsers() { alert("Gerenciamento de funcionários ainda não implementado."); }
+
+// === Logout ===
+function logout() {
+    currentUser = null;
+    document.getElementById('appPage').style.display = 'none';
+    document.getElementById('loginPage').style.display = 'flex';
+    if (map) {
+        map.remove();
+        map = null;
+        reportMarkers = [];
+    }
+}
