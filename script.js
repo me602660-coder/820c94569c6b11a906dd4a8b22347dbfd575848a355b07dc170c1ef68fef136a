@@ -41,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function registerEmployee() {
-    const fullName = document.getElementById('fullName').value.trim();
     const username = document.getElementById('newUsername').value.trim();
     const password = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
@@ -53,7 +52,7 @@ function registerEmployee() {
         setTimeout(() => errorDiv.style.display = 'none', 4000);
     }
 
-    if (!fullName || !username || !password) {
+    if (!username || !password) {
         showError('Todos os campos são obrigatórios.');
         return;
     }
