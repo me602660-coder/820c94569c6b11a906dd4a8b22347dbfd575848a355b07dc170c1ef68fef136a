@@ -440,7 +440,6 @@
             </div>
         </div>
     </div>
-
     <!-- Interface Principal do App -->
     <div class="app-container" id="appPage">
         <div class="header">
@@ -513,7 +512,6 @@
             </div>
         </div>
     </div>
-
     <!-- Modal: Cadastro de Funcionário -->
     <div class="modal" id="registerModal">
         <div class="modal-content">
@@ -523,8 +521,12 @@
             </div>
             <form id="registerForm">
                 <div class="form-group">
-                    <label for="newUsername">Nome de Usuário:</label>
-                    <input type="text" id="newUsername" placeholder="Escolha um nome de usuário" required>
+                    <label for="fullName">Nome Completo:</label>
+                    <input type="text" id="fullName" placeholder="Ex: João Silva" required>
+                </div>
+                <div class="form-group">
+                    <label for="newEmail">E-mail:</label>
+                    <input type="email" id="newEmail" placeholder="exemplo@prefeitura.gov.br" required>
                 </div>
                 <div class="form-group">
                     <label for="newPassword">Senha:</label>
@@ -539,7 +541,6 @@
             </form>
         </div>
     </div>
-
     <!-- Modal: Login Funcionário -->
     <div class="modal" id="employeeLoginModal">
         <div class="modal-content">
@@ -548,8 +549,8 @@
                 <button class="close-btn" onclick="closeEmployeeLoginModal()">&times;</button>
             </div>
             <div class="form-group">
-                <label for="employeeUsername">Usuário:</label>
-                <input type="text" id="employeeUsername" placeholder="Digite seu usuário">
+                <label for="employeeEmail">E-mail:</label>
+                <input type="email" id="employeeEmail" placeholder="seu@email.com">
             </div>
             <div class="form-group">
                 <label for="employeePassword">Senha:</label>
@@ -562,12 +563,11 @@
                 </label>
             </div>
             <div id="employeeLoginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
-                Usuário ou senha inválidos.
+                E-mail ou senha inválidos.
             </div>
             <button class="submit-btn" onclick="loginEmployee()">Entrar</button>
         </div>
     </div>
-
     <!-- Modal: Login Admin -->
     <div class="modal" id="adminLoginModal">
         <div class="modal-content">
@@ -576,8 +576,8 @@
                 <button class="close-btn" onclick="closeAdminLoginModal()">&times;</button>
             </div>
             <div class="form-group">
-                <label for="adminUsername">Usuário:</label>
-                <input type="text" id="adminUsername" placeholder="Digite o nome de usuário">
+                <label for="adminEmail">E-mail:</label>
+                <input type="email" id="adminEmail" placeholder="admin@prefeitura.gov.br">
             </div>
             <div class="form-group">
                 <label for="adminPassword">Senha:</label>
@@ -590,12 +590,11 @@
                 </label>
             </div>
             <div id="adminLoginError" style="color: #e53e3e; margin: 1rem 0; display: none;">
-                Usuário ou senha inválidos.
+                E-mail ou senha inválidos.
             </div>
             <button class="submit-btn" onclick="loginAdmin()">Entrar</button>
         </div>
     </div>
-
     <!-- Modal: Buscar Endereço -->
     <div class="modal" id="locationModal">
         <div class="modal-content">
@@ -616,7 +615,6 @@
             </div>
         </div>
     </div>
-
     <!-- Modal: Relatório -->
     <div class="modal" id="reportModal">
         <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
@@ -655,7 +653,6 @@
             </form>
         </div>
     </div>
-
     <!-- Modal: Detalhes do Marcador -->
     <div class="modal" id="markerDetailsModal">
         <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
@@ -671,11 +668,10 @@
             </div>
         </div>
     </div>
-
     <!-- SCRIPTS -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-client.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-<script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
