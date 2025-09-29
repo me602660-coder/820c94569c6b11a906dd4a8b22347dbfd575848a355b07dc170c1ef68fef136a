@@ -1,56 +1,127 @@
-// script.js — SEM import, TUDO global
+// script.js — Integrado com Supabase Auth + Database
 let map;
 let userMarker = null;
 let currentUser = null;
 let currentMarkerMode = null;
 let reportMarkers = [];
 
-// === Funções de Login ===
-function showEmployeeLoginForm() {
-    document.getElementById('employeeLoginModal').style.display = 'block';
-}
-function showAdminLoginForm() {
-    document.getElementById('adminLoginModal').style.display = 'block';
-}
-function closeEmployeeLoginModal() {
-    document.getElementById('employeeLoginModal').style.display = 'none';
-}
-function closeAdminLoginModal() {
-    document.getElementById('adminLoginModal').style.display = 'none';
-}
-
-// === Cadastro de Funcionário ===
-function openRegisterModal() {
-    document.getElementById('registerModal').style.display = 'block';
-}
-function closeRegisterModal() {
-    document.getElementById('registerModal').style.display = 'none';
-    document.getElementById('registerForm').reset();
-    document.getElementById('registerError').style.display = 'none';
-}
-
-// Validação e cadastro (frontend-only)
-document.addEventListener('DOMContentLoaded', function() {
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-        registerForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            registerEmployee();
+// === Inicialização ===
+document.addEventListener('DOMContentLoaded', async function () {
+    // Fecha modais com X
+    document.querySelectorAll('.close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('.modal').style.display = 'none';
         });
+    });
+
+    // Verifica se já está logado
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        await loadUserProfile(session.user.id);
     }
 });
 
-function registerEmployee() {
-    const username = document.getElementById('newUsername').value.trim();
-    const password = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
+// === Carregar perfil do usuário ===
+async function loadUserProfile(userId) {
+    const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', userId)
+        .single();
+
+    if (error || !profile) {
+        alert('❌ Perfil não encontrado. Faça logout e tente novamente.');
+        return;
+    }
+
+    currentUser = {
+        id: userId,
+        email: supabase.auth.getUser().email,
+        fullName: profile.full_name,
+        type: profile.role // 'employee' ou 'admin'
+    };
+
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appPage').style.display = 'block';
+    initializeMap();
+    updateUIForUser();
+    loadReportsFromDatabase();
+}
+
+// === Carregar relatórios do banco ===
+async function loadReportsFromDatabase() {
+    const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Erro ao carregar relatórios:', error);
+        return;
+    }
+
+    reportMarkers = [];
+    if (map) {
+        // Limpa marcadores antigos (caso de reload)
+        map.eachLayer(layer => {
+            if (layer.reportData) map.removeLayer(layer);
+        });
+    }
+
+    data.forEach(report => {
+        const latlng = L.latLng(report.latitude, report.longitude);
+        addReportMarkerFromDB(latlng, report);
+    });
+    updateReportsList();
+}
+
+// === Adicionar marcador a partir do banco ===
+function addReportMarkerFromDB(latlng, report) {
+    let iconColor, iconText;
+    switch(report.type) {
+        case 'metralha': iconColor = '#e53e3e'; iconText = '🧱'; break;
+        case 'entulho': iconColor = '#8B4513'; iconText = '🗑️'; break;
+        case 'mato-verde': iconColor = '#2F855A'; iconText = '🌿'; break;
+        case 'mato-seco': iconColor = '#ed8936'; iconText = '🍂'; break;
+        default: iconColor = '#667eea'; iconText = '📍';
+    }
+    const markerIcon = L.divIcon({
+        className: 'report-marker-icon',
+        html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:${iconColor};color:white;border-radius:50%;border:3px solid white;font-size:18px;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${iconText}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+    const marker = L.marker(latlng, { icon: markerIcon }).addTo(map);
+    marker.reportData = {
+        id: report.id,
+        type: report.type,
+        typeName: report.type_name,
+        latlng: latlng,
+        status: report.status,
+        createdAt: new Date(report.created_at),
+        description: report.description || '',
+        priority: report.priority || '',
+        photoUrl: report.photo_url
+    };
+    reportMarkers.push(marker);
+    marker.on('click', () => showMarkerDetails(marker));
+}
+
+// === Cadastro de Funcionário ===
+async function registerEmployee() {
+    const fullName = document.getElementById('fullName')?.value.trim();
+    const email = document.getElementById('newEmail')?.value.trim();
+    const password = document.getElementById('newPassword')?.value;
+    const confirmPassword = document.getElementById('confirmPassword')?.value;
     const errorDiv = document.getElementById('registerError');
-    function showError(msg) {
+
+    const showError = (msg) => {
         errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 4000);
-    }
-    if (!username || !password) {
+    };
+
+    if (!fullName || !email || !password) {
         showError('Todos os campos são obrigatórios.');
         return;
     }
@@ -62,55 +133,92 @@ function registerEmployee() {
         showError('As senhas não coincidem.');
         return;
     }
-    alert('✅ Funcionário cadastrado com sucesso!\nAgora ele pode fazer login.');
-    closeRegisterModal();
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } }
+    });
+
+    if (error) {
+        showError('Erro no cadastro: ' + (error.message || 'Tente novamente.'));
+        return;
+    }
+
+    if (data.user) {
+        alert('✅ Funcionário cadastrado com sucesso!\nEle pode fazer login com seu e-mail.');
+        closeRegisterModal();
+    }
 }
 
-// === Login Funcionário ===
-function loginEmployee() {
-    const username = document.getElementById('employeeUsername').value.trim();
+// === Login (Funcionário ou Admin) ===
+async function loginWithEmail(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+
+    await loadUserProfile(data.user.id);
+    return { success: true };
+}
+
+// === Funções de Interface ===
+function closeRegisterModal() {
+    document.getElementById('registerModal').style.display = 'none';
+    document.getElementById('registerForm')?.reset();
+    document.getElementById('registerError').style.display = 'none';
+}
+
+// Login de Funcionário
+document.getElementById('employeeLoginModal')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('employeeEmail').value.trim();
     const password = document.getElementById('employeePassword').value.trim();
     const errorDiv = document.getElementById('employeeLoginError');
-    if (username && password) {
-        currentUser = { type: 'employee', username };
-        closeEmployeeLoginModal();
-        loadAppInterface();
-    } else {
+
+    const result = await loginWithEmail(email, password);
+    if (!result.success) {
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 3000);
+    } else {
+        document.getElementById('employeeLoginModal').style.display = 'none';
     }
-}
+});
 
-// === Login Admin ===
-function loginAdmin() {
-    const username = document.getElementById('adminUsername').value.trim();
+// Login de Admin
+document.getElementById('adminLoginModal')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('adminEmail').value.trim();
     const password = document.getElementById('adminPassword').value.trim();
     const errorDiv = document.getElementById('adminLoginError');
-    if (username === 'admin' && password === 'senha123') {
-        currentUser = { type: 'admin', username };
-        closeAdminLoginModal();
-        loadAppInterface();
-    } else {
+
+    const result = await loginWithEmail(email, password);
+    if (!result.success) {
         errorDiv.style.display = 'block';
         setTimeout(() => errorDiv.style.display = 'none', 3000);
+    } else {
+        document.getElementById('adminLoginModal').style.display = 'none';
+    }
+});
+
+// === Logout ===
+async function logout() {
+    await supabase.auth.signOut();
+    currentUser = null;
+    document.getElementById('appPage').style.display = 'none';
+    document.getElementById('loginPage').style.display = 'flex';
+    if (map) {
+        map.eachLayer(layer => {
+            if (layer.reportData) map.removeLayer(layer);
+        });
+        reportMarkers = [];
     }
 }
 
-// === Carregar Interface do App ===
-function loadAppInterface() {
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('appPage').style.display = 'block';
-    initializeMap();
-    updateUIForUser();
-}
-
-// === Inicializar Mapa com Zoom Limitado ===
+// === Mapa ===
 function initializeMap() {
     map = L.map('map', {
         center: [-7.8375, -35.5781],
         zoom: 13,
-        maxZoom: 18,
-        layers: []
+        maxZoom: 18
     });
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
@@ -122,14 +230,15 @@ function initializeMap() {
     });
     L.control.layers({ "Mapa (OSM)": osmLayer, "Satélite (Esri)": satelliteLayer }).addTo(map);
     osmLayer.addTo(map);
+
     map.on('click', function(e) {
-        if (currentUser && (currentUser.type === 'admin' || currentUser.type === 'employee') && currentMarkerMode) {
+        if (currentUser && currentMarkerMode) {
             addReportMarker(e.latlng, currentMarkerMode);
         }
     });
 }
 
-// === Funções de Marcador (mantidas iguais) ===
+// === Adicionar novo marcador (frontend) ===
 function addReportMarker(latlng, type) {
     let iconColor, iconText, typeName;
     switch(type) {
@@ -147,7 +256,7 @@ function addReportMarker(latlng, type) {
     });
     const marker = L.marker(latlng, { icon: markerIcon }).addTo(map);
     marker.reportData = {
-        id: Date.now(),
+        id: Date.now(), // temporário
         type: type,
         typeName: typeName,
         latlng: latlng,
@@ -163,37 +272,71 @@ function addReportMarker(latlng, type) {
     updateReportsList();
 }
 
+// === Abrir modal de relatório ===
 function openReportModal(latlng, type, marker) {
     const typeName = getReportTypeName(type);
     document.getElementById('problemType').value = typeName;
     document.getElementById('reportLocation').value = `Lat: ${latlng.lat.toFixed(6)}, Lng: ${latlng.lng.toFixed(6)}`;
     document.getElementById('reportModal').style.display = 'block';
+
     document.getElementById('reportForm').onsubmit = (e) => {
         e.preventDefault();
         submitReport(latlng, type, marker);
     };
 }
 
-function submitReport(latlng, type, marker) {
+// === Enviar relatório para o Supabase ===
+async function submitReport(latlng, type, marker) {
     const description = document.getElementById('description').value;
     const priority = document.getElementById('priority').value;
     const photoFile = document.getElementById('photo').files[0];
-    marker.reportData.description = description;
-    marker.reportData.priority = priority;
+
+    let photoUrl = null;
     if (photoFile) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            marker.reportData.photoUrl = reader.result;
-            finalizeReport(marker);
-        };
-        reader.readAsDataURL(photoFile);
-    } else {
-        finalizeReport(marker);
+        const fileExt = photoFile.name.split('.').pop();
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+            .from('report-images')
+            .upload(fileName, photoFile);
+
+        if (uploadError) {
+            alert('Erro ao enviar imagem.');
+            return;
+        }
+        const { data: { publicUrl } } = supabase.storage
+            .from('report-images')
+            .getPublicUrl(fileName);
+        photoUrl = publicUrl;
     }
+
+    // Salva no banco
+    const { data, error } = await supabase
+        .from('reports')
+        .insert({
+            user_id: currentUser.id,
+            type: type,
+            type_name: getReportTypeName(type),
+            latitude: latlng.lat,
+            longitude: latlng.lng,
+            description: description,
+            priority: priority,
+            photo_url: photoUrl
+        })
+        .select()
+        .single();
+
+    if (error) {
+        alert('Erro ao salvar relatório.');
+        return;
+    }
+
+    // Atualiza o marcador com o ID real
+    marker.reportData.id = data.id;
+    finalizeReport(marker);
 }
 
 function finalizeReport(marker) {
-    let content = `<strong>${marker.reportData.typeName}</strong><br><strong>Descrição:</strong> ${marker.reportData.description || 'Nenhuma'}<br><strong>Prioridade:</strong> ${marker.reportData.priority || 'Não definida'}<br><strong>Status:</strong> Pendente<br><small>Reportado em: ${marker.reportData.createdAt.toLocaleString()}</small>`;
+    let content = `<strong>${marker.reportData.typeName}</strong><br><strong>Descrição:</strong> ${marker.reportData.description || 'Nenhuma'}<br><strong>Prioridade:</strong> ${marker.reportData.priority || 'Não definida'}<br><strong>Status:</strong> ${marker.reportData.status === 'pending' ? 'Pendente' : marker.reportData.status === 'progress' ? 'Em Progresso' : 'Concluído'}<br><small>Reportado em: ${marker.reportData.createdAt.toLocaleString()}</small>`;
     if (marker.reportData.photoUrl) {
         content += `<br><img src="${marker.reportData.photoUrl}" style="width:100%;max-height:150px;object-fit:cover;border-radius:5px;margin-top:10px;">`;
     }
@@ -203,6 +346,7 @@ function finalizeReport(marker) {
     updateReportsList();
 }
 
+// === Detalhes e Ações ===
 function showMarkerDetails(marker) {
     const d = marker.reportData;
     let statusText = 'Pendente', statusClass = 'pending';
@@ -220,33 +364,54 @@ function showMarkerDetails(marker) {
     document.getElementById('markerDetailsModal').style.display = 'block';
 }
 
-function markAsCompleted() {
+async function markAsCompleted() {
     const m = reportMarkers.find(m => m.reportData.id);
-    if (m) {
-        m.reportData.status = 'completed';
-        updateReportsList();
-        closeMarkerDetailsModal();
+    if (!m) return;
+
+    const { error } = await supabase
+        .from('reports')
+        .update({ status: 'completed' })
+        .eq('id', m.reportData.id);
+
+    if (error) {
+        alert('Erro ao atualizar status.');
+        return;
     }
+
+    m.reportData.status = 'completed';
+    updateReportsList();
+    closeMarkerDetailsModal();
 }
 
-function removeMarker() {
+async function removeMarker() {
     if (currentUser?.type !== 'admin') {
         alert('⛔️ Apenas administradores podem remover marcadores.');
         return;
     }
     const m = reportMarkers.find(m => m.reportData.id);
-    if (m) {
-        map.removeLayer(m);
-        reportMarkers = reportMarkers.filter(x => x !== m);
-        updateReportsList();
-        closeMarkerDetailsModal();
+    if (!m) return;
+
+    const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', m.reportData.id);
+
+    if (error) {
+        alert('Erro ao remover marcador.');
+        return;
     }
+
+    map.removeLayer(m);
+    reportMarkers = reportMarkers.filter(x => x !== m);
+    updateReportsList();
+    closeMarkerDetailsModal();
 }
 
 function closeMarkerDetailsModal() {
     document.getElementById('markerDetailsModal').style.display = 'none';
 }
 
+// === Lista de Relatórios ===
 function updateReportsList() {
     const list = document.getElementById('reportsList');
     list.innerHTML = reportMarkers.length === 0
@@ -272,9 +437,9 @@ function updateReportsList() {
             });
             return item;
         }).reduce((frag, el) => { frag.appendChild(el); return frag; }, document.createDocumentFragment());
-    if (list.innerHTML instanceof DocumentFragment) list.appendChild(list.innerHTML);
 }
 
+// === Auxiliares ===
 function getReportTypeEmoji(t) {
     return t === 'metralha' ? '🧱' : t === 'entulho' ? '🗑️' : t === 'mato-verde' ? '🌿' : t === 'mato-seco' ? '🍂' : '📍';
 }
@@ -331,15 +496,3 @@ function goToLocation(lat, lng, name) {
 }
 function closeModal() { document.getElementById('reportModal').style.display = 'none'; }
 function manageUsers() { alert("Gerenciamento de funcionários ainda não implementado."); }
-
-// === Logout ===
-function logout() {
-    currentUser = null;
-    document.getElementById('appPage').style.display = 'none';
-    document.getElementById('loginPage').style.display = 'flex';
-    if (map) {
-        map.remove();
-        map = null;
-        reportMarkers = [];
-    }
-}
